@@ -1,0 +1,10 @@
+opencv-python
+dlib
+imutils
+numpy
+# winsound is part of the Windows standard library
+geopy
+flask
+flask-socketio
+requests
+python-dotenv

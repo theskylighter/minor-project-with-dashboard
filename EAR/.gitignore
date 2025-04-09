@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs
+*.log
+logs/
+driver_alerts.json
+
+# Environment variables
+.env
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Virtual Environment
+venv/
+ENV/
+
+# Model files (these should be downloaded separately)
+shape_predictor_68_face_landmarks.dat
