@@ -16,7 +16,8 @@ import subprocess
 DRIVER_INFO = {
     "name": "John Doe",
     "id": "DRV12345",
-    "vehicle": "TN-01-AB-1234"
+    "vehicle": "TN-01-AB-1234",
+    "phone": "+1-555-123-4567"  # Added driver phone number
 }
 
 # Alert configuration
