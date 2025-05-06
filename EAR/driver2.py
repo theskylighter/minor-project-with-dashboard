@@ -20,9 +20,12 @@ DRIVER_INFO = {
 }
 
 # Alert configuration
-SLEEP_ALERT_THRESHOLD = 10  # seconds - alert after this many seconds of sleeping
+SLEEP_ALERT_THRESHOLD = 5  # seconds - alert after this many seconds of sleeping
+DROWSY_ALERT_THRESHOLD = 7  # seconds - alert after this many seconds of drowsiness
 alert_start_time = None
+drowsy_alert_start_time = None
 alert_sent = False
+drowsy_alert_sent = False
 
 # Location tracking setup
 geolocator = Nominatim(user_agent="driver_drowsiness_detector")
@@ -325,12 +328,17 @@ while True:
             if active >= STATE_CHANGE_FRAMES:
                 status, color, beep_played = "Active :)", (0, 255, 0), False
                 active = STATE_CHANGE_FRAMES  # Cap the counter
-        elif drowsy_ear * 1.1 <= smoothed_ear < awake_ear * 0.85:  # Wider drowsy range
+        elif smoothed_ear < awake_ear * 0.85 and smoothed_ear > sleep_ear * 1.1:  # Better drowsy range between awake and sleep
             sleep, active = 0, 0
             drowsy += 1
             if drowsy >= STATE_CHANGE_FRAMES:
                 status, color, beep_played = "Drowsy !", (0, 255, 255), False
                 drowsy = STATE_CHANGE_FRAMES  # Cap the counter
+                if drowsy_alert_start_time is None:
+                    drowsy_alert_start_time = time.time()
+                elif time.time() - drowsy_alert_start_time > DROWSY_ALERT_THRESHOLD and not drowsy_alert_sent:
+                    log_alert(status, time.time() - drowsy_alert_start_time)
+                    drowsy_alert_sent = True
         elif smoothed_ear <= sleep_ear * 1.1:  # Slightly more lenient sleep threshold
             active, drowsy = 0, 0
             sleep += 1
@@ -350,6 +358,9 @@ while True:
         if status == "Active :)" and alert_start_time is not None:
             alert_start_time = None
             alert_sent = False
+        if status == "Active :)" and drowsy_alert_start_time is not None:
+            drowsy_alert_start_time = None
+            drowsy_alert_sent = False
         
         # Display EAR values
         y_position += 40
