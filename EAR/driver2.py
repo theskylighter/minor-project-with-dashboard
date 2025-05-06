@@ -111,8 +111,8 @@ def log_alert(status, duration):
         else:
             alerts = []
         
-        # Add new alert and save
-        alerts.append(alert_data)
+        # Insert new alert at the beginning of the list (instead of appending)
+        alerts.insert(0, alert_data)
         with open(ALERTS_FILE, "w") as f:
             json.dump(alerts, f, indent=4)
         
