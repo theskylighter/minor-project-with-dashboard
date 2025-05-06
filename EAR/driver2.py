@@ -324,44 +324,55 @@ while True:
         
         # Adjusted thresholds with smoothed EAR
         if smoothed_ear >= awake_ear * 0.85:  # Slightly more lenient threshold
-            sleep, drowsy = 0, 0
+            sleep = 0
+            drowsy = 0
             active += 1
             if active >= STATE_CHANGE_FRAMES:
-                status, color, beep_played = "Active :)", (0, 255, 0), False
+                status = "Active :)" 
+                color = (0, 255, 0)
+                beep_played = False
                 active = STATE_CHANGE_FRAMES  # Cap the counter
+                # Reset alert state if active
+                if alert_start_time is not None:
+                    alert_start_time = None
+                    alert_sent = False
+                if drowsy_alert_start_time is not None:
+                    drowsy_alert_start_time = None
+                    drowsy_alert_sent = False
         elif smoothed_ear < awake_ear * 0.85 and smoothed_ear > sleep_ear * 1.1:  # Better drowsy range between awake and sleep
-            sleep, active = 0, 0
+            sleep = 0
+            active = 0
             drowsy += 1
             if drowsy >= STATE_CHANGE_FRAMES:
-                status, color, beep_played = "Drowsy !", (0, 255, 255), False
+                status = "Drowsy !"
+                color = (0, 255, 255)
                 drowsy = STATE_CHANGE_FRAMES  # Cap the counter
+                # Only start the timer once when entering drowsy state
                 if drowsy_alert_start_time is None:
                     drowsy_alert_start_time = time.time()
                 elif time.time() - drowsy_alert_start_time > DROWSY_ALERT_THRESHOLD and not drowsy_alert_sent:
                     log_alert(status, time.time() - drowsy_alert_start_time)
                     drowsy_alert_sent = True
         elif smoothed_ear <= sleep_ear * 1.1:  # Slightly more lenient sleep threshold
-            active, drowsy = 0, 0
+            active = 0
+            drowsy = 0
             sleep += 1
             if sleep >= STATE_CHANGE_FRAMES:
-                status, color = "SLEEPING !!!", (0, 0, 255)
+                status = "SLEEPING !!!"
+                color = (0, 0, 255)
                 sleep = STATE_CHANGE_FRAMES  # Cap the counter
+                
+                # Only play sound once when entering sleep state
                 if not beep_played:
                     winsound.PlaySound("beep (2).wav", winsound.SND_ASYNC)
                     beep_played = True
+                    
+                # Only start the timer once when entering sleep state
                 if alert_start_time is None:
                     alert_start_time = time.time()
                 elif time.time() - alert_start_time > SLEEP_ALERT_THRESHOLD and not alert_sent:
                     log_alert(status, time.time() - alert_start_time)
                     alert_sent = True
-        
-        # Reset alert state if active
-        if status == "Active :)" and alert_start_time is not None:
-            alert_start_time = None
-            alert_sent = False
-        if status == "Active :)" and drowsy_alert_start_time is not None:
-            drowsy_alert_start_time = None
-            drowsy_alert_sent = False
         
         # Display EAR values
         y_position += 40
