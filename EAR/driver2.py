@@ -12,13 +12,31 @@ import threading
 import requests
 import subprocess
 
-# Driver information - in a real application, this would be configured or input
-DRIVER_INFO = {
-    "name": "John Doe",
-    "id": "DRV12345",
-    "vehicle": "TN-01-AB-1234",
-    "phone": "+1-555-123-4567"  # Added driver phone number
-}
+# Driver configuration file path
+CONFIG_FILE = "driver_config.json"
+
+# Load driver information from config file if available
+def load_driver_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading driver configuration: {e}")
+    
+    # Default driver information if config file not available
+    return {
+        "name": "John Doe",
+        "id": "DRV12345",
+        "vehicle": "TN-01-AB-1234",
+        "phone": "+1-555-123-4567"
+    }
+
+# Load driver information
+DRIVER_INFO = load_driver_config()
+print(f"Driver: {DRIVER_INFO['name']} ({DRIVER_INFO['id']})")
+print(f"Vehicle: {DRIVER_INFO['vehicle']}")
+print(f"Contact: {DRIVER_INFO['phone']}")
 
 # Alert configuration
 SLEEP_ALERT_THRESHOLD = 5  # seconds - alert after this many seconds of sleeping
