@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import dlib
 from imutils import face_utils
-import winsound
 import time
 import os
 import json
@@ -11,6 +10,12 @@ from geopy.geocoders import Nominatim
 import threading
 import requests
 import subprocess
+
+# Cross-platform audio alert support
+try:
+    import winsound
+except ImportError:
+    winsound = None
 
 # Driver configuration file path
 CONFIG_FILE = "driver_config.json"
@@ -92,7 +97,7 @@ def update_location():
                     requests.post("http://localhost:5000/location_update", 
                                 json=current_location,
                                 timeout=1)
-                except:
+                except Exception:
                     print("Could not send location update to dashboard")
                     
             except Exception as e:
@@ -141,7 +146,7 @@ def log_alert(status, duration):
         # Send alert to web dashboard if it's running
         try:
             requests.post("http://localhost:5000/alert", json=alert_data, timeout=1)
-        except:
+        except Exception:
             pass  # Dashboard might not be running, that's OK
             
         print(f"Alert logged: {status} - {current_location['address']}")
@@ -155,7 +160,14 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # Smaller resolution for faster processi
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
+
+SHAPE_PREDICTOR_PATH = "./shape_predictor_68_face_landmarks.dat"
+if not os.path.exists(SHAPE_PREDICTOR_PATH):
+    raise FileNotFoundError(
+        f"'{SHAPE_PREDICTOR_PATH}' not found. Download it from: "
+        "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2"
+    )
+predictor = dlib.shape_predictor(SHAPE_PREDICTOR_PATH)
 
 # Calibration variables
 awake_ear = None
@@ -382,7 +394,10 @@ while True:
                 
                 # Only play sound once when entering sleep state
                 if not beep_played:
-                    winsound.PlaySound("beep (2).wav", winsound.SND_ASYNC)
+                    if winsound:
+                        winsound.PlaySound("beep (2).wav", winsound.SND_ASYNC)
+                    else:
+                        print("\a")  # Terminal bell as cross-platform fallback
                     beep_played = True
                     
                 # Only start the timer once when entering sleep state

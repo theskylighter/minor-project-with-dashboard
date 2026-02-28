@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'drowsiness_detection_secret'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'drowsiness_detection_secret')
 socketio = SocketIO(app)
 
 ALERTS_FILE = "driver_alerts.json"
