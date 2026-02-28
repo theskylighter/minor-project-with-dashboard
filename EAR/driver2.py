@@ -43,9 +43,12 @@ print(f"Driver: {DRIVER_INFO['name']} ({DRIVER_INFO['id']})")
 print(f"Vehicle: {DRIVER_INFO['vehicle']}")
 print(f"Contact: {DRIVER_INFO['phone']}")
 
-# Alert configuration
-SLEEP_ALERT_THRESHOLD = 5  # seconds - alert after this many seconds of sleeping
-DROWSY_ALERT_THRESHOLD = 7  # seconds - alert after this many seconds of drowsiness
+# Alert configuration (loaded from config, with sensible defaults)
+SLEEP_ALERT_THRESHOLD = DRIVER_INFO.get("sleep_alert_threshold", 5)  # seconds
+DROWSY_ALERT_THRESHOLD = DRIVER_INFO.get("drowsy_alert_threshold", 7)  # seconds
+CAMERA_WIDTH = DRIVER_INFO.get("camera_width", 640)
+CAMERA_HEIGHT = DRIVER_INFO.get("camera_height", 480)
+LOCATION_UPDATE_INTERVAL = DRIVER_INFO.get("location_update_interval", 5)  # seconds
 alert_start_time = None
 drowsy_alert_start_time = None
 alert_sent = False
@@ -112,7 +115,7 @@ def update_location():
 def location_updater():
     while True:
         update_location()
-        time.sleep(5)  # Update every 5 seconds
+        time.sleep(LOCATION_UPDATE_INTERVAL)
 
 location_thread = threading.Thread(target=location_updater, daemon=True)
 location_thread.start()
@@ -156,8 +159,8 @@ def log_alert(status, duration):
 # Initialize webcam with higher FPS
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FPS, 30)  # Request 30 FPS
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # Smaller resolution for faster processing
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
 detector = dlib.get_frontal_face_detector()
 
@@ -305,127 +308,130 @@ beep_played = False
 prev_time = time.time()
 fps = 0
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+try:
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+            
+        # Calculate FPS
+        current_time = time.time()
+        fps = 1 / (current_time - prev_time)
+        prev_time = current_time
         
-    # Calculate FPS
-    current_time = time.time()
-    fps = 1 / (current_time - prev_time)
-    prev_time = current_time
-    
-    # Flip frame horizontally for mirror effect
-    frame = cv2.flip(frame, 1)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = detector(gray)
-    
-    height, width = frame.shape[:2]
-    y_position = 50
-    
-    # Display FPS
-    cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    
-    # Display status with background for better visibility
-    status_size = cv2.getTextSize(status, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 3)[0]
-    status_x = (width - status_size[0]) // 2
-    
-    # Draw semi-transparent background for text
-    overlay = frame.copy()
-    cv2.rectangle(overlay, 
-                 (status_x - 10, y_position - 40),
-                 (status_x + status_size[0] + 10, y_position + 10),
-                 (0, 0, 0),
-                 -1)
-    cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
-    
-    # Draw status text
-    cv2.putText(frame, status, (status_x, y_position), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
-    
-    for face in faces:
-        landmarks = predictor(gray, face)
-        landmarks = face_utils.shape_to_np(landmarks)
-        ear = get_ear(landmarks)
+        # Flip frame horizontally for mirror effect
+        frame = cv2.flip(frame, 1)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = detector(gray)
         
-        # Smooth EAR value
-        smoothed_ear = smooth_ear(ear)
+        height, width = frame.shape[:2]
+        y_position = 50
         
-        # Adjusted thresholds with smoothed EAR
-        if smoothed_ear >= awake_ear * 0.85:  # Slightly more lenient threshold
-            sleep = 0
-            drowsy = 0
-            active += 1
-            if active >= STATE_CHANGE_FRAMES:
-                status = "Active :)" 
-                color = (0, 255, 0)
-                beep_played = False
-                active = STATE_CHANGE_FRAMES  # Cap the counter
-                # Reset alert state if active
-                if alert_start_time is not None:
-                    alert_start_time = None
-                    alert_sent = False
-                if drowsy_alert_start_time is not None:
-                    drowsy_alert_start_time = None
-                    drowsy_alert_sent = False
-        elif smoothed_ear < awake_ear * 0.85 and smoothed_ear > sleep_ear * 1.1:  # Better drowsy range between awake and sleep
-            sleep = 0
-            active = 0
-            drowsy += 1
-            if drowsy >= STATE_CHANGE_FRAMES:
-                status = "Drowsy !"
-                color = (0, 255, 255)
-                drowsy = STATE_CHANGE_FRAMES  # Cap the counter
-                # Only start the timer once when entering drowsy state
-                if drowsy_alert_start_time is None:
-                    drowsy_alert_start_time = time.time()
-                elif time.time() - drowsy_alert_start_time > DROWSY_ALERT_THRESHOLD and not drowsy_alert_sent:
-                    log_alert(status, time.time() - drowsy_alert_start_time)
-                    drowsy_alert_sent = True
-        elif smoothed_ear <= sleep_ear * 1.1:  # Slightly more lenient sleep threshold
-            active = 0
-            drowsy = 0
-            sleep += 1
-            if sleep >= STATE_CHANGE_FRAMES:
-                status = "SLEEPING !!!"
-                color = (0, 0, 255)
-                sleep = STATE_CHANGE_FRAMES  # Cap the counter
-                
-                # Only play sound once when entering sleep state
-                if not beep_played:
-                    if winsound:
-                        winsound.PlaySound("beep (2).wav", winsound.SND_ASYNC)
-                    else:
-                        print("\a")  # Terminal bell as cross-platform fallback
-                    beep_played = True
-                    
-                # Only start the timer once when entering sleep state
-                if alert_start_time is None:
-                    alert_start_time = time.time()
-                elif time.time() - alert_start_time > SLEEP_ALERT_THRESHOLD and not alert_sent:
-                    log_alert(status, time.time() - alert_start_time)
-                    alert_sent = True
+        # Display FPS
+        cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
-        # Display EAR values
-        y_position += 40
-        ear_text = f"EAR: {smoothed_ear:.2f} (Raw: {ear:.2f})"
-        ear_size = cv2.getTextSize(ear_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-        ear_x = (width - ear_size[0]) // 2
+        # Display status with background for better visibility
+        status_size = cv2.getTextSize(status, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 3)[0]
+        status_x = (width - status_size[0]) // 2
         
-        # Draw background for EAR value
-        cv2.rectangle(frame,
-                     (ear_x - 5, y_position - 25),
-                     (ear_x + ear_size[0] + 5, y_position + 5),
+        # Draw semi-transparent background for text
+        overlay = frame.copy()
+        cv2.rectangle(overlay, 
+                     (status_x - 10, y_position - 40),
+                     (status_x + status_size[0] + 10, y_position + 10),
                      (0, 0, 0),
                      -1)
-        cv2.putText(frame, ear_text, (ear_x, y_position),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
+        
+        # Draw status text
+        cv2.putText(frame, status, (status_x, y_position), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
+        
+        for face in faces:
+            landmarks = predictor(gray, face)
+            landmarks = face_utils.shape_to_np(landmarks)
+            ear = get_ear(landmarks)
+            
+            # Smooth EAR value
+            smoothed_ear = smooth_ear(ear)
+            
+            # Adjusted thresholds with smoothed EAR
+            if smoothed_ear >= awake_ear * 0.85:  # Slightly more lenient threshold
+                sleep = 0
+                drowsy = 0
+                active += 1
+                if active >= STATE_CHANGE_FRAMES:
+                    status = "Active :)" 
+                    color = (0, 255, 0)
+                    beep_played = False
+                    active = STATE_CHANGE_FRAMES  # Cap the counter
+                    # Reset alert state if active
+                    if alert_start_time is not None:
+                        alert_start_time = None
+                        alert_sent = False
+                    if drowsy_alert_start_time is not None:
+                        drowsy_alert_start_time = None
+                        drowsy_alert_sent = False
+            elif smoothed_ear < awake_ear * 0.85 and smoothed_ear > sleep_ear * 1.1:  # Better drowsy range between awake and sleep
+                sleep = 0
+                active = 0
+                drowsy += 1
+                if drowsy >= STATE_CHANGE_FRAMES:
+                    status = "Drowsy !"
+                    color = (0, 255, 255)
+                    drowsy = STATE_CHANGE_FRAMES  # Cap the counter
+                    # Only start the timer once when entering drowsy state
+                    if drowsy_alert_start_time is None:
+                        drowsy_alert_start_time = time.time()
+                    elif time.time() - drowsy_alert_start_time > DROWSY_ALERT_THRESHOLD and not drowsy_alert_sent:
+                        log_alert(status, time.time() - drowsy_alert_start_time)
+                        drowsy_alert_sent = True
+            elif smoothed_ear <= sleep_ear * 1.1:  # Slightly more lenient sleep threshold
+                active = 0
+                drowsy = 0
+                sleep += 1
+                if sleep >= STATE_CHANGE_FRAMES:
+                    status = "SLEEPING !!!"
+                    color = (0, 0, 255)
+                    sleep = STATE_CHANGE_FRAMES  # Cap the counter
+                    
+                    # Only play sound once when entering sleep state
+                    if not beep_played:
+                        if winsound:
+                            winsound.PlaySound("beep (2).wav", winsound.SND_ASYNC)
+                        else:
+                            print("\a")  # Terminal bell as cross-platform fallback
+                        beep_played = True
+                        
+                    # Only start the timer once when entering sleep state
+                    if alert_start_time is None:
+                        alert_start_time = time.time()
+                    elif time.time() - alert_start_time > SLEEP_ALERT_THRESHOLD and not alert_sent:
+                        log_alert(status, time.time() - alert_start_time)
+                        alert_sent = True
+            
+            # Display EAR values
+            y_position += 40
+            ear_text = f"EAR: {smoothed_ear:.2f} (Raw: {ear:.2f})"
+            ear_size = cv2.getTextSize(ear_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+            ear_x = (width - ear_size[0]) // 2
+            
+            # Draw background for EAR value
+            cv2.rectangle(frame,
+                         (ear_x - 5, y_position - 25),
+                         (ear_x + ear_size[0] + 5, y_position + 5),
+                         (0, 0, 0),
+                         -1)
+            cv2.putText(frame, ear_text, (ear_x, y_position),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-    cv2.imshow("Driver Drowsiness Detector", frame)
-    
-    if cv2.waitKey(1) == 27:
-        break
+        cv2.imshow("Driver Drowsiness Detector", frame)
+        
+        if cv2.waitKey(1) == 27:
+            break
 
-cap.release()
-cv2.destroyAllWindows()
+finally:
+    cap.release()
+    cv2.destroyAllWindows()
+    print("Cleanup complete: camera released and windows closed.")

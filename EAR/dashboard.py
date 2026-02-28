@@ -44,6 +44,14 @@ def index():
 def receive_alert():
     """Endpoint to receive alerts from the drowsiness detection system"""
     alert_data = request.json
+    if not alert_data:
+        return jsonify({"status": "error", "message": "No JSON body provided"}), 400
+    
+    required_fields = ["status", "driver", "location"]
+    missing = [f for f in required_fields if f not in alert_data]
+    if missing:
+        return jsonify({"status": "error", "message": f"Missing fields: {', '.join(missing)}"}), 400
+    
     current_driver_status["status"] = alert_data.get("status", "Unknown")
     
     # Broadcast new alert to all connected clients
@@ -55,6 +63,14 @@ def receive_alert():
 def location_update():
     """Endpoint to receive continuous location updates"""
     data = request.json
+    if not data:
+        return jsonify({"status": "error", "message": "No JSON body provided"}), 400
+    
+    required_fields = ["latitude", "longitude"]
+    missing = [f for f in required_fields if f not in data]
+    if missing:
+        return jsonify({"status": "error", "message": f"Missing fields: {', '.join(missing)}"}), 400
+    
     current_driver_status["location"] = data
     current_driver_status["last_update"] = datetime.datetime.now().isoformat()
     
