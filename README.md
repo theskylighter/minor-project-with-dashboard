@@ -43,7 +43,7 @@ A computer-vision based system that monitors driver alertness in real-time using
 ## Project Structure
 
 ```
-EAR/
+.
 ├── driver2.py            # Core drowsiness detection engine
 ├── dashboard.py          # Flask web dashboard server
 ├── driver_config.py      # Tkinter GUI for driver credentials
@@ -51,8 +51,8 @@ EAR/
 ├── get_location.ps1      # PowerShell script for GPS coordinates
 ├── templates/
 │   └── index.html        # Dashboard UI template
-├── requirements.txt
-└── README.md
+├── requirements.txt      # Project dependencies
+└── README.md             # Project documentation
 ```
 
 ## Getting Started
@@ -62,7 +62,7 @@ EAR/
 - Python 3.8+
 - Windows OS (for `winsound` audio alerts and location API)
 - Webcam
-- [shape_predictor_68_face_landmarks.dat](http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2) — download, extract, and place in the `EAR/` directory
+- [shape_predictor_68_face_landmarks.dat](http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2) — download, extract, and place in the project root directory
 
 ### Installation
 
