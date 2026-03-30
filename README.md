@@ -2,12 +2,14 @@
 
 A computer-vision based system that monitors driver alertness in real-time using a webcam and facial landmark analysis. When drowsiness or sleep is detected, the system triggers audio alerts and pushes notifications to a live web dashboard — enabling remote fleet monitoring.
 
+## Detection Window
+![alt text](image.png)
 <!-- Screenshots / Demo -->
-![Dashboard Screenshot](screenshots/dashboard.png)
+## Dashboard
+![alt text](image-1.png)
+![alt text](image2.png)
 <!-- Replace with your actual screenshot path or hosted image URL -->
 
-![Detection Window](screenshots/detection.png)
-<!-- Replace with your actual screenshot path or hosted image URL -->
 
 ---
 
